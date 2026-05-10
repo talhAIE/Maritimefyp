@@ -1,377 +1,403 @@
-# AIS Watch - Maritime Anomaly Detection System
+# AIS Watch — Maritime Anomaly Detection System
 
-An AI-powered system for detecting suspicious maritime activities using LSTM Autoencoder for real-time anomaly detection in ship tracking data.
-
-## 📋 Table of Contents
-
-- [Project Overview](#project-overview)
-- [Features](#features)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [How to Run](#how-to-run)
-  - [Frontend Dashboard](#frontend-dashboard)
-  - [Python/Backend (Future)](#pythonbackend-future)
-- [Usage](#usage)
-- [Model Performance](#model-performance)
-- [Project Documentation](#project-documentation)
-- [Technologies Used](#technologies-used)
+An AI-powered system for detecting suspicious maritime activity from AIS (Automatic Identification System) data using an LSTM Autoencoder. Ships are scored in real time and visualised in a React dashboard backed by a FastAPI service.
 
 ---
 
-## Project Overview
+## Table of Contents
 
-AIS Watch is a **Maritime Security and Anomaly Detection System** that uses advanced machine learning (LSTM Autoencoder) to monitor ships in real-time and identify anomalies such as:
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [Project Structure](#project-structure)
+4. [Prerequisites](#prerequisites)
+5. [Installation](#installation)
+6. [Data and Model Artifacts](#data-and-model-artifacts)
+7. [Running the App](#running-the-app)
+8. [Verification](#verification)
+9. [Environment Variables](#environment-variables)
+10. [API Reference](#api-reference)
+11. [Model Performance](#model-performance)
+12. [Tech Stack](#tech-stack)
+13. [Troubleshooting](#troubleshooting)
+14. [Documentation](#documentation)
 
-- GPS spoofing attacks
-- Unauthorized route deviations
-- Suspicious behaviors
+---
+
+## Overview
+
+AIS Watch monitors maritime traffic and flags anomalies such as:
+
+- GPS spoofing
+- Unauthorised route deviations
 - Position teleportation
+- Unusual vessel behaviour
 
-**Key Achievement:** 95% accuracy with 100% recall (catches all anomalies)
+The trained model achieves **95% accuracy with 100% recall** on the New York Harbor evaluation set, prioritising zero missed anomalies.
 
 ---
 
-## Features
+## Architecture
 
-- ✅ **Real-time Anomaly Detection** - LSTM Autoencoder model with 95% accuracy
-- ✅ **Interactive Dashboard** - React-based frontend with live visualizations
-- ✅ **Traffic Analysis** - Heatmaps and trajectory visualization
-- ✅ **Alert Management** - Real-time anomaly alerts with severity levels
-- ✅ **Data Analytics** - Speed, course, and vessel type distributions
-- ✅ **Training Data** - 5+ million AIS records from New York Harbor
+The system has two services that run side by side:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Backend** (`backend/`) | `8000` | FastAPI app. Loads the AIS CSV, optionally runs the LSTM Autoencoder, and exposes JSON endpoints. |
+| **Frontend** (`frontend/`) | `5173` | React + TypeScript dashboard. Fetches from the backend through a Vite dev-server proxy (`/api`, `/health`). |
+
+Inference activates only when **both** `model_saved/ais_lstm_autoencoder.pth` and `model_saved/scaler.pkl` are present and load cleanly. Without them the API still serves CSV-derived analytics, just no anomaly scores.
 
 ---
 
 ## Project Structure
 
 ```
-Fyp_Maritime/
-├── frontend/                 # React TypeScript Frontend
+Maritimefyp/
+├── backend/                   # FastAPI service
+│   ├── __main__.py            # `python -m backend` entry point
+│   ├── main.py                # FastAPI routes
+│   ├── maritime_state.py      # CSV + model loading and caches
+│   └── model_torch.py         # LSTM Autoencoder definition
+│
+├── frontend/                  # React + TypeScript dashboard (Vite)
 │   ├── src/
-│   │   ├── components/      # React components
-│   │   ├── data/            # Mock data
-│   │   └── types/           # TypeScript types
+│   │   ├── api/client.ts      # Typed fetch wrapper for backend
+│   │   ├── components/        # Charts, dashboards, maps, tables
+│   │   └── types/             # Shared TypeScript types
+│   ├── .env.example
 │   ├── package.json
-│   └── vite.config.ts
+│   └── vite.config.ts         # Dev proxy to http://127.0.0.1:8000
 │
-├── data/                     # Training Dataset
-│   └── FYP_Training_Data_NY_Dec2024.csv
+├── data/                      # Place AIS CSV here (gitignored content)
+│   └── .gitkeep
 │
-├── model_saved/              # Trained Models
-│   ├── ais_lstm_autoencoder.pth
-│   └── scaler.pkl
+├── model_saved/               # Trained-model artifacts
+│   ├── ais_lstm_autoencoder.pth   # LSTM weights (state_dict)
+│   ├── scaler.pkl                 # Fitted MinMaxScaler
+│   ├── threshold.json             # MSE cutoff for alerts
+│   ├── evaluation_metrics.json    # Dashboard KPI labels
+│   └── README.md                  # Artifact details
 │
-├── Notebook/                 # Jupyter Notebook
-│   └── Maritime.ipynb       # Complete 6-part workflow
+├── Notebook/
+│   └── Maritime.ipynb         # 6-part training and evaluation workflow
 │
-├── outputs/                  # Generated Visualizations
-│   ├── Anomaly_Detection_Result.html
-│   ├── Final_AIS_Dashboard.html
-│   ├── NY_Sample_Trajectories.html
-│   └── NY_Traffic_Density.html
+├── outputs/                   # Generated HTML visualisations
+├── scraper/get_data.py        # NOAA AIS downloader
+├── scripts/verify_model.py    # Sanity-check model artifacts
+├── documents/                 # Project write-up and chapters
 │
-├── scraper/                  # Data Collection
-│   └── get_data.py
-│
-├── documents/                # Project Documentation
-│   ├── Complete Overview of the Project.md
-│   ├── Part2_Data_Preprocessing_EDA.md
-│   ├── Part3_LSTM_Model_Development.md
-│   └── ...
-│
-├── pyproject.toml           # Python Dependencies
-└── README.md                # This file
+├── main.py                    # Shim: `python main.py` -> `python -m backend`
+├── pyproject.toml             # Python dependencies (Python >= 3.12)
+└── QUICK_START.md             # Abridged setup guide
 ```
 
 ---
 
 ## Prerequisites
 
-### For Frontend:
-- **Node.js** 18+ ([Download](https://nodejs.org/))
-- **npm** (comes with Node.js)
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| Python      | 3.12+   | See `.python-version`. |
+| Node.js     | 18+     | Ships with `npm`. |
+| Package manager (Python) | `uv` (recommended) or `pip` | `uv` is faster and uses `uv.lock`. |
+| Git         | any     | For cloning. |
 
-### For Python/ML:
-- **Python** 3.12+ ([Download](https://www.python.org/downloads/))
-- **pip** or **uv** (package manager)
+GPU is optional. The backend will use CUDA automatically if available, otherwise it falls back to CPU.
 
 ---
 
 ## Installation
 
-### 1. Clone the Repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/talhAIE/Maritimefyp.git
 cd Maritimefyp
 ```
 
-### 2. Frontend Setup
+### 2. Backend (Python)
 
-```bash
-cd frontend
-npm install
-```
+Using **uv** (recommended):
 
-This installs all React, TypeScript, and UI dependencies.
-
-### 3. Python Environment Setup (Optional - for ML/Backend)
-
-If you want to run the Python/ML components:
-
-```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On Mac/Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -e .
-```
-
-Or using `uv` (recommended):
 ```bash
 uv sync
 ```
 
----
-
-## How to Run
-
-### Frontend Dashboard
-
-The UI expects the **API** on port **8000** (see above). Dev server proxies `/api` and `/health`; no env var needed for local development.
+Or with **pip** in a virtual environment:
 
 ```bash
-# Navigate to frontend directory
-cd frontend
+# Windows (PowerShell)
+python -m venv venv
+venv\Scripts\Activate.ps1
+pip install -e .
 
-# Start development server
-npm run dev
+# macOS / Linux
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
 ```
 
-**Open your browser:**
-```
-http://localhost:5173
-```
-
-The dashboard loads:
-- Statistics overview
-- Interactive maps (Traffic Density, Trajectories, Anomaly Detection, Surveillance)
-- Charts and analytics
-- Alerts table
-- Data tables
-
-**To stop the server:** Press `Ctrl + C` in the terminal
-
-### Build for Production
+### 3. Frontend (Node.js)
 
 ```bash
 cd frontend
-npm run build
+npm install
+cd ..
 ```
 
-The production build will be in `frontend/dist/` folder.
+Optionally copy the env template (only needed when pointing to a non-local API):
+
+```bash
+# Windows
+Copy-Item frontend\.env.example frontend\.env
+
+# macOS / Linux
+cp frontend/.env.example frontend/.env
+```
+
+Leave `VITE_API_BASE_URL` empty for local development; the Vite dev server proxies `/api` and `/health` to `http://127.0.0.1:8000`.
 
 ---
 
-### Python API (FastAPI)
+## Data and Model Artifacts
 
-Runs on **port 8000** and serves live statistics, analytics, vessels, alerts, and map payloads from:
+The repository ships **without** the large AIS CSV. You need to provide it yourself.
 
-- **CSV:** `data/FYP_Training_Data_NY_Dec2024.csv`
-- **Model (optional):** `model_saved/ais_lstm_autoencoder.pth`, `model_saved/scaler.pkl`, plus `threshold.json` / `evaluation_metrics.json`
+### AIS CSV
+
+Place a NOAA AIS CSV at:
+
+```
+data/FYP_Training_Data_NY_Dec2024.csv
+```
+
+To download a fresh sample:
 
 ```bash
-# From repository root (install deps once: uv sync or pip install -e .)
+python scraper/get_data.py
+```
+
+Move the resulting CSV into `data/` if it lands elsewhere. The backend resolves the configured path, then falls back to the largest `.csv` in `data/` if the exact filename is missing.
+
+### Model Artifacts (optional, but enables anomaly detection)
+
+| File | Purpose |
+|------|---------|
+| `model_saved/ais_lstm_autoencoder.pth` | LSTM Autoencoder weights (`state_dict`). |
+| `model_saved/scaler.pkl` | `MinMaxScaler` fitted on `LAT, LON, SOG, COG`. |
+| `model_saved/threshold.json` | `{"mse_threshold": ...}` — cutoff for alerts. |
+| `model_saved/evaluation_metrics.json` | Optional KPI labels (`accuracy`, `precision`, `recall`, `f1Score`). |
+
+Generate the weights and scaler from `Notebook/Maritime.ipynb` (Part 3):
+
+```python
+torch.save(model.state_dict(), "model_saved/ais_lstm_autoencoder.pth")
+joblib.dump(scaler, "model_saved/scaler.pkl")
+```
+
+See `model_saved/README.md` for full provenance details.
+
+---
+
+## Running the App
+
+The backend and frontend run in **two separate terminals**.
+
+### Terminal 1 — Backend
+
+```bash
+# From repo root
+uv run python -m backend
+# or, if using pip + venv:
 python -m backend
 ```
 
-Or:
+You should see Uvicorn listening on `http://0.0.0.0:8000`. Health check:
+
+```
+http://127.0.0.1:8000/health
+```
+
+The response includes `data_loaded`, `model_loaded`, `inference_active`, and `vessels_scored` so you can confirm both the CSV and the model are wired up.
+
+### Terminal 2 — Frontend
 
 ```bash
-python main.py
+cd frontend
+npm run dev
 ```
 
-**To run the Jupyter Notebook:**
+Open `http://localhost:5173`.
+
+### Production build (frontend)
 
 ```bash
-# Install Jupyter if needed
-pip install jupyter
-
-# Start Jupyter
-jupyter notebook
-
-# Open Notebook/Maritime.ipynb
+cd frontend
+npm run build      # outputs to frontend/dist/
+npm run preview    # serves the build locally
 ```
 
-**To use the trained model:**
-
-```python
-import torch
-import joblib
-from pathlib import Path
-
-# Load model
-model_path = Path("model_saved/ais_lstm_autoencoder.pth")
-scaler_path = Path("model_saved/scaler.pkl")
-
-# Load scaler
-scaler = joblib.load(scaler_path)
-
-# Load model architecture and weights
-# (See Notebook/Maritime.ipynb Part 3 for model definition)
-```
+For a production frontend talking to a remote backend, set `VITE_API_BASE_URL` in `frontend/.env` before building.
 
 ---
 
-## Usage
+## Verification
 
-### Frontend Dashboard Sections
+After placing model artifacts, sanity-check them:
 
-1. **Dashboard** - Overview with statistics cards and charts
-2. **Maps & Trajectories** - 4 interactive map views:
-   - Traffic Density Heatmap
-   - Sample Trajectories
-   - Anomaly Detection Comparison
-   - Live Surveillance Dashboard
-3. **Anomaly Alerts** - List of detected anomalies with details
-4. **Analytics** - Charts for speed, course, vessel types, timeline
-5. **Training Data** - Dataset information and statistics
-6. **Settings** - Configuration panel
+```bash
+python scripts/verify_model.py
+```
 
-### Model Information
+Exit code `0` means the weights and scaler load and a probe forward pass succeeds. Restart the backend after replacing artifacts.
 
-- **Architecture:** LSTM Autoencoder
-- **Input:** 30-position sequences (LAT, LON, SOG, COG)
-- **Training Data:** 1,006,037 sequences from 912 vessels
-- **Threshold:** 0.000116 (95th percentile)
-- **Performance:**
-  - Accuracy: 95.00%
-  - Precision: 90.91%
-  - Recall: 100.00%
-  - F1-Score: 95.24%
+---
+
+## Environment Variables
+
+### Backend (`backend/main.py`, `backend/maritime_state.py`)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `AIS_DATA_PATH` | `data/FYP_Training_Data_NY_Dec2024.csv` | Override AIS CSV path or directory. |
+| `AIS_MODEL_PATH` | `model_saved/ais_lstm_autoencoder.pth` | Override LSTM weights path. |
+| `AIS_SCALER_PATH` | `model_saved/scaler.pkl` | Override scaler path. |
+| `AIS_THRESHOLD_PATH` | `model_saved/threshold.json` | Override threshold file. |
+| `AIS_EVAL_METRICS_PATH` | `model_saved/evaluation_metrics.json` | Override KPI labels file. |
+| `AIS_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated list of allowed browser origins. |
+
+### Frontend (`frontend/.env`)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `VITE_API_BASE_URL` | empty (uses Vite proxy) | Set when serving a built frontend against a remote API, e.g. `http://127.0.0.1:8000`. |
+
+---
+
+## API Reference
+
+All endpoints return JSON. Examples assume the backend is at `http://127.0.0.1:8000`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Service status, data/model load state, inference summary. |
+| GET | `/api/statistics` | Aggregate KPIs for the dashboard cards. |
+| GET | `/api/vessels?limit=200` | Latest position per MMSI with anomaly flag. |
+| GET | `/api/model/vessel-scores?limit=200` | Per-vessel reconstruction MSE, ranked. |
+| GET | `/api/alerts` | Vessels above the MSE threshold, sorted by severity. |
+| GET | `/api/trajectories?limit=50` | Trajectory snippets for top-N MMSI by sample count. |
+| GET | `/api/maps/traffic-density?limit=8000` | `[lat, lon, intensity]` triples for heatmap. |
+| GET | `/api/maps/anomaly-pair` | Normal-vs-anomalous trajectory comparison pair. |
+| GET | `/api/analytics/speed-distribution` | SOG histogram (2-knot bins). |
+| GET | `/api/analytics/course-distribution` | COG histogram (15-degree bins). |
+| GET | `/api/analytics/vessel-types` | Vessel type counts and percentages. |
+| GET | `/api/analytics/timeline` | Daily totals split into normal vs anomaly. |
+
+Endpoints that require the CSV return **HTTP 503** with a descriptive `detail` if the data is missing; check `/health` first when debugging.
 
 ---
 
 ## Model Performance
 
-| Metric | Score |
-|--------|-------|
-| **Accuracy** | 95.00% |
-| **Precision** | 90.91% |
-| **Recall** | 100.00% |
-| **F1-Score** | 95.24% |
+| Metric    | Score   |
+|-----------|---------|
+| Accuracy  | 95.00%  |
+| Precision | 90.91%  |
+| Recall    | 100.00% |
+| F1-Score  | 95.24%  |
 
-**Key Highlights:**
-- ✅ 100% recall - Catches ALL suspicious ships
-- ✅ 90.91% precision - Low false alarm rate
-- ✅ Trained on 5+ million real AIS records
+- **Architecture:** LSTM Autoencoder
+- **Input sequence:** 30 timesteps × `[LAT, LON, SOG, COG]`
+- **Training data:** 1,006,037 sequences from 912 vessels (5M+ raw AIS records, NY Harbor, Dec 2024)
+- **Threshold:** MSE = 0.000116 (95th percentile of training reconstruction error)
 
----
-
-## Project Documentation
-
-Comprehensive documentation is available in the `documents/` folder:
-
-- **Complete Overview of the Project.md** - Full project summary
-- **Part2_Data_Preprocessing_EDA.md** - Data cleaning and analysis
-- **Part3_LSTM_Model_Development.md** - Model architecture and training
-- **Part4_Anomaly_Detection_Logic.md** - Detection algorithm
-- **Parts5-6_Visualization_Evaluation.md** - Visualizations and evaluation
+100% recall is intentional: the cost of a missed anomaly outweighs the cost of a false alarm in this domain.
 
 ---
 
-## Technologies Used
+## Tech Stack
+
+### Backend
+- **Python 3.12+**
+- **FastAPI** + **Uvicorn** — async API server
+- **PyTorch** — LSTM Autoencoder
+- **scikit-learn** + **joblib** — feature scaling and serialisation
+- **pandas** + **NumPy** — AIS preprocessing
 
 ### Frontend
-- **React** 18 + **TypeScript**
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-- **React-Leaflet** - Interactive maps
-- **Recharts** - Data visualization
-- **Lucide React** - Icons
+- **React 18** + **TypeScript 5**
+- **Vite 5** — dev server and bundler
+- **Tailwind CSS** — styling
+- **React-Leaflet** + **Leaflet** — interactive maps
+- **Recharts** — charts
+- **date-fns** — date formatting
+- **Lucide React** — icons
 
-### Backend/ML
-- **Python** 3.12+
-- **PyTorch** - Deep learning framework
-- **Pandas** - Data processing
-- **NumPy** - Numerical computing
-- **Scikit-learn** - ML utilities
-- **Folium** - Map visualization
-- **FastAPI** - API framework (for future backend)
-- **Uvicorn** - ASGI server
+### Notebook / ML workflow
+- **Jupyter** — `Notebook/Maritime.ipynb` (6-part workflow: ingestion → EDA → model → detection → visualisation → evaluation)
+- **Folium** — HTML map outputs in `outputs/`
 
 ---
 
 ## Troubleshooting
 
-### Frontend Issues
+### Backend
 
-**Port 5173 already in use:**
-```powershell
-# Windows PowerShell
-Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }
-```
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `503` on `/api/...` | CSV missing or unreadable | Place CSV in `data/`, then check `/health` `detail`. |
+| `model_loaded: false` | Weights or scaler missing | Run `python scripts/verify_model.py` for a precise diagnosis. |
+| `inference_active: false` but model loaded | Threshold missing or every vessel below it | Add `model_saved/threshold.json` or lower the threshold. |
+| `ImportError` for `backend.*` | Package not installed | Run `uv sync` or `pip install -e .` from the repo root. |
+| sklearn pickle warning when loading scaler | Scikit-learn version drift | Re-save `scaler.pkl` with the same sklearn version used at training. |
 
-**npm install fails:**
-- Clear cache: `npm cache clean --force`
-- Delete `node_modules` and `package-lock.json`
-- Run `npm install` again
+### Frontend
 
-**Maps don't load:**
-- Check internet connection (maps load from OpenStreetMap)
-- Check browser console (F12) for errors
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Port `5173` in use | Stale Vite process | PowerShell: `Get-NetTCPConnection -LocalPort 5173 \| Select-Object -ExpandProperty OwningProcess \| ForEach-Object { Stop-Process -Id $_ -Force }` |
+| `Network error` in dashboard | Backend not running on `:8000` | Start Terminal 1 first; verify `http://127.0.0.1:8000/health`. |
+| Maps blank | OpenStreetMap tiles blocked | Check internet access and browser console (F12). |
+| `npm install` fails | Stale cache | `npm cache clean --force`, delete `node_modules` and `package-lock.json`, retry. |
+| Build talks to wrong API | `VITE_API_BASE_URL` baked in | Update `frontend/.env` and rebuild. |
 
-### Python Issues
+---
 
-**Module not found:**
-- Ensure virtual environment is activated
-- Run `pip install -e .` to install dependencies
+## Documentation
 
-**Model loading errors:**
-- Ensure `model_saved/` folder contains the model files
-- Check Python version (3.12+ required)
+The `documents/` folder contains the full project write-up:
+
+- `Complete Overview of the Project.md` — executive summary
+- `Part2_Data_Preprocessing_EDA.md` — cleaning and EDA
+- `Part3_LSTM_Model_Development.md` — model architecture and training
+- `Part4_Anomaly_Detection_Logic.md` — detection algorithm
+- `Parts5-6_Visualization_Evaluation.md` — visualisation and evaluation
+
+For an abridged setup guide, see [`QUICK_START.md`](QUICK_START.md).
 
 ---
 
 ## License
 
-This project is part of a Final Year Project (FYP).
+This project is part of a Final Year Project (FYP). See repository for license details.
 
 ---
 
-## Contact
-
-For questions or issues, please open an issue on GitHub.
-
----
-
-## Quick Start Summary
+## Quick Start (TL;DR)
 
 ```bash
-# 1. Clone repository
+# 1. Clone and install
 git clone https://github.com/talhAIE/Maritimefyp.git
 cd Maritimefyp
+uv sync                              # backend deps
+cd frontend && npm install && cd ..  # frontend deps
 
-# 2. Install frontend dependencies
-cd frontend
-npm install
+# 2. Drop your AIS CSV at data/FYP_Training_Data_NY_Dec2024.csv
+#    (and model artifacts in model_saved/ for anomaly scoring)
 
-# 3. Run frontend
-npm run dev
+# 3. Terminal 1: backend
+uv run python -m backend             # http://127.0.0.1:8000
 
-# 4. Open browser
-# http://localhost:5173
+# 4. Terminal 2: frontend
+cd frontend && npm run dev           # http://localhost:5173
 ```
-
-**That's it!** Keep the FastAPI server running on port 8000 so the dashboard can load live AIS-derived data through the `/api` proxy.
-
----
-
-*Last updated: January 2025*
