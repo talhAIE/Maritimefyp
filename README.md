@@ -145,7 +145,7 @@ uv sync
 
 ### Frontend Dashboard
 
-The frontend runs independently with mock data (no backend required).
+The UI expects the **API** on port **8000** (see above). Dev server proxies `/api` and `/health`; no env var needed for local development.
 
 ```bash
 # Navigate to frontend directory
@@ -160,7 +160,7 @@ npm run dev
 http://localhost:5173
 ```
 
-The dashboard will load with:
+The dashboard loads:
 - Statistics overview
 - Interactive maps (Traffic Density, Trajectories, Anomaly Detection, Surveillance)
 - Charts and analytics
@@ -180,11 +180,23 @@ The production build will be in `frontend/dist/` folder.
 
 ---
 
-### Python/Backend (Future)
+### Python API (FastAPI)
 
-Currently, the Python code is mainly for:
-- Training the ML model (see `Notebook/Maritime.ipynb`)
-- Running inference (future backend API)
+Runs on **port 8000** and serves live statistics, analytics, vessels, alerts, and map payloads from:
+
+- **CSV:** `data/FYP_Training_Data_NY_Dec2024.csv`
+- **Model (optional):** `model_saved/ais_lstm_autoencoder.pth`, `model_saved/scaler.pkl`, plus `threshold.json` / `evaluation_metrics.json`
+
+```bash
+# From repository root (install deps once: uv sync or pip install -e .)
+python -m backend
+```
+
+Or:
+
+```bash
+python main.py
+```
 
 **To run the Jupyter Notebook:**
 
@@ -358,7 +370,7 @@ npm run dev
 # http://localhost:5173
 ```
 
-**That's it!** The dashboard will run with mock data - no backend required.
+**That's it!** Keep the FastAPI server running on port 8000 so the dashboard can load live AIS-derived data through the `/api` proxy.
 
 ---
 

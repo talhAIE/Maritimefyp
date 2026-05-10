@@ -1,36 +1,96 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import TrafficDensityMap from '../Maps/TrafficDensityMap';
 import TrajectoriesMap from '../Maps/TrajectoriesMap';
 import AnomalyDetectionMap from '../Maps/AnomalyDetectionMap';
 import SurveillanceDashboard from '../Maps/SurveillanceDashboard';
-import { 
-  trafficDensityPoints, 
-  mockTrajectories,
-  generateMockTrajectories 
-} from '../../data/mockData';
+import { getAnomalyPair, getHealth, getTrafficDensity, getTrajectories } from '../../api/client';
+import type { Trajectory } from '../../types';
 
 export default function MapsView() {
   const [activeTab, setActiveTab] = useState<'traffic' | 'trajectories' | 'anomaly' | 'surveillance'>('traffic');
+  const [trafficDensityPoints, setTrafficDensityPoints] = useState<[number, number, number][]>([]);
+  const [trajectories, setTrajectories] = useState<Trajectory[]>([]);
+  const [anomalyPair, setAnomalyPair] = useState<{
+    normalTrajectory: Trajectory;
+    anomalousTrajectory: Trajectory;
+  } | null>(null);
+  const [pairError, setPairError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [mseThreshold, setMseThreshold] = useState<number | null>(null);
+  const [dataRefreshedAt, setDataRefreshedAt] = useState<string>('');
 
-  // Get normal and anomalous trajectories for comparison
-  const normalTraj = mockTrajectories.find(t => t.status === 'normal') || mockTrajectories[0];
-  const anomalousTraj = mockTrajectories.find(t => t.status === 'anomaly') || {
-    ...mockTrajectories[0],
-    status: 'anomaly' as const,
-    error: 0.000708,
-    positions: mockTrajectories[0].positions.map((p, i) => ({
-      ...p,
-      latitude: p.latitude + (i >= 10 && i < 20 ? -0.2 : 0),
-      longitude: p.longitude + (i >= 10 && i < 20 ? 0.2 : 0),
-    })),
-  };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [pts, trajs, health] = await Promise.all([
+          getTrafficDensity(8000),
+          getTrajectories(50),
+          getHealth(),
+        ]);
+        if (!cancelled) {
+          setTrafficDensityPoints(pts);
+          setTrajectories(trajs);
+          setMseThreshold(typeof health.threshold === 'number' ? health.threshold : null);
+          setDataRefreshedAt(new Date().toLocaleString());
+          setError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'anomaly') return;
+    let cancelled = false;
+    setPairError(null);
+    (async () => {
+      try {
+        const pair = await getAnomalyPair();
+        if (!cancelled) setAnomalyPair(pair);
+      } catch (e) {
+        if (!cancelled)
+          setPairError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
+
+  const normalTraj = anomalyPair?.normalTrajectory ??
+    trajectories.find((t) => t.status === 'normal') ?? {
+      mmsi: 0,
+      positions: [],
+      status: 'normal' as const,
+    };
+  const anomalousTraj = anomalyPair?.anomalousTrajectory ??
+    trajectories.find((t) => t.status === 'anomaly') ??
+    ({
+      ...normalTraj,
+      status: 'anomaly' as const,
+      mmsi: normalTraj.mmsi + 1,
+    } satisfies Trajectory);
 
   const tabs = [
     { id: 'traffic' as const, label: 'Traffic Density', count: trafficDensityPoints.length },
-    { id: 'trajectories' as const, label: 'Sample Trajectories', count: mockTrajectories.length },
-    { id: 'anomaly' as const, label: 'Anomaly Detection', count: 2 },
-    { id: 'surveillance' as const, label: 'Surveillance Dashboard', count: mockTrajectories.length },
+    { id: 'trajectories' as const, label: 'Sample Trajectories', count: trajectories.length },
+    { id: 'anomaly' as const, label: 'Anomaly Detection', count: anomalyPair ? 2 : 0 },
+    { id: 'surveillance' as const, label: 'Surveillance Dashboard', count: trajectories.length },
   ];
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+        <p className="font-semibold">Could not load maps</p>
+        <p className="text-sm mt-1">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -64,19 +124,37 @@ export default function MapsView() {
 
       <div className="mt-6">
         {activeTab === 'traffic' && (
-          <TrafficDensityMap points={trafficDensityPoints} />
+          <>
+            {trafficDensityPoints.length === 0 ? (
+              <div className="text-gray-600">Loading map data…</div>
+            ) : (
+              <TrafficDensityMap points={trafficDensityPoints} />
+            )}
+          </>
         )}
-        {activeTab === 'trajectories' && (
-          <TrajectoriesMap trajectories={mockTrajectories} maxTrajectories={10} />
-        )}
+        {activeTab === 'trajectories' && <TrajectoriesMap trajectories={trajectories} maxTrajectories={10} />}
         {activeTab === 'anomaly' && (
-          <AnomalyDetectionMap 
-            normalTrajectory={normalTraj}
-            anomalousTrajectory={anomalousTraj}
-          />
+          <>
+            {pairError && (
+              <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                Anomaly pair: {pairError}
+              </div>
+            )}
+            {!anomalyPair && !pairError && (
+              <div className="text-gray-600 mb-4">Loading anomaly comparison…</div>
+            )}
+            {normalTraj.positions.length > 0 && anomalousTraj.positions.length > 0 && (
+              <AnomalyDetectionMap normalTrajectory={normalTraj} anomalousTrajectory={anomalousTraj} />
+            )}
+          </>
         )}
         {activeTab === 'surveillance' && (
-          <SurveillanceDashboard trajectories={mockTrajectories} maxTrajectories={20} />
+          <SurveillanceDashboard
+            trajectories={trajectories}
+            maxTrajectories={20}
+            threshold={mseThreshold}
+            dataRefreshedAt={dataRefreshedAt}
+          />
         )}
       </div>
     </div>

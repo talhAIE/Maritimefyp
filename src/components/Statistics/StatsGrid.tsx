@@ -19,15 +19,14 @@ export default function StatsGrid({ statistics }: StatsGridProps) {
       <StatsCard
         title="Active Vessels"
         value={statistics.activeVessels}
-        subtitle="Currently monitored"
+        subtitle="Pings in the last 24h of the dataset"
         icon={Activity}
         iconColor="text-green-600"
-        trend={{ value: 5.2, label: "vs last hour", isPositive: true }}
       />
       <StatsCard
         title="Anomalies Detected"
         value={statistics.anomaliesDetected}
-        subtitle="Flagged today"
+        subtitle="Vessels above MSE threshold (last window)"
         icon={AlertTriangle}
         iconColor="text-red-600"
       />
@@ -60,9 +59,13 @@ export default function StatsGrid({ statistics }: StatsGridProps) {
         iconColor="text-teal-600"
       />
       <StatsCard
-        title="Training Data"
-        value={`${(statistics.totalRecords / 1000000).toFixed(1)}M`}
-        subtitle={`${statistics.trainingSequences.toLocaleString()} sequences`}
+        title="AIS ping rows"
+        value={
+          statistics.totalRecords >= 1_000_000
+            ? `${(statistics.totalRecords / 1_000_000).toFixed(2)}M`
+            : statistics.totalRecords.toLocaleString()
+        }
+        subtitle={`${statistics.trainingSequences.toLocaleString()} windows (len 30, stride 5)`}
         icon={Database}
         iconColor="text-gray-600"
       />

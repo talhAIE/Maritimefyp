@@ -20,10 +20,10 @@ const statusColors = {
 
 export default function AlertsTable({ alerts }: AlertsTableProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-900">Recent Anomaly Alerts</h3>
-        <p className="text-sm text-gray-600 mt-1">Latest detected anomalies</p>
+    <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5">
+      <div className="border-b border-slate-100 bg-slate-50/80 px-6 py-4">
+        <h3 className="text-lg font-semibold tracking-tight text-slate-900">Latest alerts</h3>
+        <p className="mt-1 text-sm text-slate-600">Highest-error vessels from the API (newest first).</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">

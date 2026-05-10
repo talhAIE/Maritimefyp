@@ -21,6 +21,7 @@ const VESSEL_TYPE_NAMES: Record<number, string> = {
 
 export default function VesselsTable({ vessels, maxVessels = 50 }: VesselsTableProps) {
   const displayVessels = vessels.slice(0, maxVessels);
+  const showMse = displayVessels.some((v) => v.error != null && Number.isFinite(v.error));
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
@@ -50,6 +51,11 @@ export default function VesselsTable({ vessels, maxVessels = 50 }: VesselsTableP
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
+              {showMse && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Model MSE
+                </th>
+              )}
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Last Update
               </th>
@@ -96,6 +102,11 @@ export default function VesselsTable({ vessels, maxVessels = 50 }: VesselsTableP
                     {vessel.status === 'anomaly' ? 'ANOMALY' : 'NORMAL'}
                   </span>
                 </td>
+                {showMse && (
+                  <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-gray-700">
+                    {typeof vessel.error === 'number' ? vessel.error.toExponential(3) : '—'}
+                  </td>
+                )}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Clock className="w-4 h-4" />
@@ -112,9 +123,7 @@ export default function VesselsTable({ vessels, maxVessels = 50 }: VesselsTableP
           <span className="text-sm text-gray-600">
             Showing {displayVessels.length} of {vessels.length} vessels
           </span>
-          <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-            View All Vessels →
-          </button>
+          <span className="text-xs text-gray-400">Scores when model is loaded (last-window MSE).</span>
         </div>
       </div>
     </div>

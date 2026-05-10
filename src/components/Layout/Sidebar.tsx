@@ -1,5 +1,4 @@
-import { LayoutDashboard, Map, AlertCircle, BarChart3, Settings, Database } from 'lucide-react';
-import { useState } from 'react';
+import { LayoutDashboard, Map, AlertCircle, BarChart3, Brain, Settings, Database } from 'lucide-react';
 
 interface SidebarProps {
   activeSection: string;
@@ -12,7 +11,8 @@ export default function Sidebar({ activeSection, onSectionChange }: SidebarProps
     { id: 'maps', label: 'Maps & Trajectories', icon: Map },
     { id: 'alerts', label: 'Anomaly Alerts', icon: AlertCircle },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'data', label: 'Training Data', icon: Database },
+    { id: 'model', label: 'Model insights', icon: Brain },
+    { id: 'dataset', label: 'AIS dataset & fleet', icon: Database },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 

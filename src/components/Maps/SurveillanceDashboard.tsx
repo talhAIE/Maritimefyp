@@ -6,6 +6,10 @@ import { Trajectory } from '../../types';
 interface SurveillanceDashboardProps {
   trajectories: Trajectory[];
   maxTrajectories?: number;
+  /** Reconstruction MSE threshold from the API; omitted if the model is not loaded. */
+  threshold?: number | null;
+  /** When map/trajectory data was last fetched from the backend. */
+  dataRefreshedAt?: string;
 }
 
 function MapBounds({ trajectories }: { trajectories: Trajectory[] }) {
@@ -26,7 +30,12 @@ function MapBounds({ trajectories }: { trajectories: Trajectory[] }) {
   return null;
 }
 
-export default function SurveillanceDashboard({ trajectories, maxTrajectories = 20 }: SurveillanceDashboardProps) {
+export default function SurveillanceDashboard({
+  trajectories,
+  maxTrajectories = 20,
+  threshold = null,
+  dataRefreshedAt,
+}: SurveillanceDashboardProps) {
   const displayTrajectories = trajectories.slice(0, maxTrajectories);
   const normalCount = displayTrajectories.filter(t => t.status === 'normal').length;
   const anomalyCount = displayTrajectories.filter(t => t.status === 'anomaly').length;
@@ -100,7 +109,9 @@ export default function SurveillanceDashboard({ trajectories, maxTrajectories = 
             </div>
           </div>
           <span className="text-sm text-gray-500">
-            Threshold: 0.000116 | Last scan: {new Date().toLocaleTimeString()}
+            Threshold:{' '}
+            {threshold != null ? threshold.toExponential(4) : '— (no model)'}
+            {dataRefreshedAt ? ` | Data loaded: ${dataRefreshedAt}` : ''}
           </span>
         </div>
       </div>

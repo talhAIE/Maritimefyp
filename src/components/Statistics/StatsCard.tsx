@@ -22,13 +22,13 @@ export default function StatsCard({
   trend 
 }: StatsCardProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
+    <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm shadow-slate-900/5 transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
+          <p className="mt-1 truncate text-3xl font-semibold tabular-nums tracking-tight text-slate-900">{value}</p>
           {subtitle && (
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+            <p className="mt-1 text-xs leading-snug text-slate-500">{subtitle}</p>
           )}
           {trend && (
             <div className={`mt-3 flex items-center gap-1 text-sm font-medium ${
@@ -40,8 +40,8 @@ export default function StatsCard({
             </div>
           )}
         </div>
-        <div className={`p-3 rounded-lg bg-gray-50 ${iconColor}`}>
-          <Icon className="w-6 h-6" />
+        <div className={`shrink-0 rounded-xl bg-slate-50 p-3 ${iconColor}`}>
+          <Icon className="h-6 w-6" />
         </div>
       </div>
     </div>

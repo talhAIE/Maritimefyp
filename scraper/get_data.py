@@ -1,7 +1,8 @@
-import os
-import requests
 import zipfile
+from pathlib import Path
+
 import pandas as pd
+import requests
 from tqdm import tqdm
 
 # CONFIGURATIO
@@ -14,10 +15,12 @@ BASE_URL = f"https://coast.noaa.gov/htdata/CMSP/AISDataHandler/{YEAR}/"
 LAT_MIN, LAT_MAX = 40.50, 40.75
 LON_MIN, LON_MAX = -74.20, -73.90
 
-OUTPUT_FILE = "FYP_Training_Data_NY_Dec2024.csv"
+ROOT = Path(__file__).resolve().parent.parent
+RAW_DIR = ROOT / "raw_data"
+OUTPUT_FILE = ROOT / "data" / "FYP_Training_Data_NY_Dec2024.csv"
 
-# Create folder for raw downloads
-os.makedirs("raw_data", exist_ok=True)
+RAW_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 processed_data = []
 
@@ -36,7 +39,7 @@ for day in tqdm(DAYS, desc="Processing Days"):
         if response.status_code != 200:
             continue
 
-        zip_path = f"raw_data/{zip_filename}"
+        zip_path = RAW_DIR / zip_filename
         with open(zip_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
@@ -49,18 +52,18 @@ for day in tqdm(DAYS, desc="Processing Days"):
     # UNZIP
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall("raw_data")
+            zip_ref.extractall(RAW_DIR)
     except Exception as e:
         print(f"Unzip failed for {zip_filename}: {e}")
         continue
 
     # FILTER & PROCESS
-    csv_path = f"raw_data/{csv_filename}"
+    csv_path = RAW_DIR / csv_filename
 
-    if os.path.exists(csv_path):
+    if csv_path.is_file():
         try:
             df = pd.read_csv(
-                csv_path,
+                csv_path.as_posix(),
                 usecols=['MMSI', 'BaseDateTime', 'LAT', 'LON', 'SOG', 'COG', 'VesselType']
             )
 
@@ -73,8 +76,8 @@ for day in tqdm(DAYS, desc="Processing Days"):
                 processed_data.append(ny_chunk)
 
             # CLEANUP
-            os.remove(csv_path)
-            os.remove(zip_path)
+            csv_path.unlink()
+            zip_path.unlink()
 
         except Exception as e:
             print(f"CSV processing failed for {csv_filename}: {e}")
@@ -83,7 +86,7 @@ for day in tqdm(DAYS, desc="Processing Days"):
 if processed_data:
     print("Merging and saving final dataset...")
     final_df = pd.concat(processed_data, ignore_index=True)
-    final_df.to_csv(OUTPUT_FILE, index=False)
+    final_df.to_csv(OUTPUT_FILE.as_posix(), index=False)
     print(f"Saved {len(final_df)} rows to '{OUTPUT_FILE}'")
 else:
     print("No data found for the specified region.")

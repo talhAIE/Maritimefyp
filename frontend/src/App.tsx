@@ -7,6 +7,7 @@ import AlertsView from './components/Dashboard/AlertsView';
 import AnalyticsView from './components/Dashboard/AnalyticsView';
 import DataView from './components/Dashboard/DataView';
 import SettingsView from './components/Dashboard/SettingsView';
+import ModelInsightsView from './components/Dashboard/ModelInsightsView';
 
 function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -21,7 +22,9 @@ function App() {
         return <AlertsView />;
       case 'analytics':
         return <AnalyticsView />;
-      case 'data':
+      case 'model':
+        return <ModelInsightsView />;
+      case 'dataset':
         return <DataView />;
       case 'settings':
         return <SettingsView />;
